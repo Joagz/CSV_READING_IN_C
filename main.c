@@ -1,243 +1,157 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <malloc.h>
 #include <string.h>
 #include "../resources/school.h"
 
-FILE *read_file(char CSV_PATH[]);
-int file_size(FILE *stream);
-
-FILE *studentsTable;
-int header_sizes_num_elements = 0;
-
-char **read_value(char CSV_PATH[], int row)
+typedef struct
 {
-    row = row + 1;
-    FILE *stream = read_file(CSV_PATH);
-    int size = file_size(stream);
-    char buffer[MAX_LINE_LENGTH];
-    char line[MAX_LINE_LENGTH];
-    int actual_row = 0;
+    char *students_amount;
+    char *name;
+    char *id;
+    char *address;
+    char *jurisdiction;
+    char *city;
+    char *country_code;
+} School;
 
-    while (fgets(line, sizeof(line), stream) != NULL)
+void initSchool(School *school, const char *students_amount, const char *name, const char *id, const char *address, const char *jurisdiction, const char *city, const char *country_code)
+{
+    school->students_amount = strdup(students_amount);
+    if (school->students_amount == NULL)
     {
-        line[strcspn(line, "\n")] = '\0';
-        actual_row++;
-        if (strlen(line) == 0 || (strspn(line, " \t") == strlen(line)))
-        {
-            printf("Empty line at line number %d\n", actual_row);
-            return NULL;
-        }
-        if (actual_row == row)
-        {
-            strcpy(buffer, line);
-            break;
-        }
+        perror("Memory allocation error");
+        exit(1); // Terminate the program on memory allocation error
     }
 
-    if (feof(stream))
+    school->name = strdup(name);
+    if (school->name == NULL)
     {
-        printf("Desired line does not exist (end of file reached)\n");
-        return NULL;
-    }
-    else if (ferror(stream))
-    {
-        perror("Error reading file");
-        return NULL;
+        perror("Memory allocation error");
+        exit(1);
     }
 
-    printf("%s", buffer);
-    fclose(stream);
-
-    char **headers = (char **)malloc(sizeof(char *) * header_sizes_num_elements);
-
-    if (!headers)
-        return NULL;
-    for (int i = 0; i < header_sizes_num_elements; i++)
+    school->id = strdup(id);
+    if (school->id == NULL)
     {
-        headers[i] = (char *)malloc(sizeof(buffer) + 1);
-        if (!headers[i])
-        {
-            free(headers);
-            return NULL;
-        }
+        perror("Memory allocation error");
+        exit(1);
     }
 
-    int header_index = 0;
-    int cur_index = 0;
-    char *str = (char *)malloc(sizeof(buffer) + sizeof(char));
-    for (int i = 0; i < size; i++)
+    school->address = strdup(address);
+    if (school->address == NULL)
     {
-        char ch = buffer[i];
-        if (ch == '\n' || ch == '\r')
-        {
-            strncpy(headers[header_index], str, sizeof(buffer));
-            headers[header_index][cur_index] = '\0';
-            free(str);
-            break;
-        }
-        if (ch == ',')
-        {
-            strncpy(headers[header_index], str, sizeof(buffer));
-            headers[header_index][cur_index] = '\0';
-            strcpy(str, "");
-
-            cur_index = 0;
-            header_index++;
-        }
-        else
-        {
-            str[cur_index] = ch;
-            cur_index++;
-        }
+        perror("Memory allocation error");
+        exit(1);
     }
 
-    return headers;
+    school->jurisdiction = strdup(jurisdiction);
+    if (school->jurisdiction == NULL)
+    {
+        perror("Memory allocation error");
+        exit(1);
+    }
+
+    school->city = strdup(city);
+    if (school->city == NULL)
+    {
+        perror("Memory allocation error");
+        exit(1);
+    }
+
+    school->country_code = strdup(country_code);
+    if (school->country_code == NULL)
+    {
+        perror("Memory allocation error");
+        exit(1);
+    }
 }
 
-FILE *read_file(char CSV_PATH[])
+int readFromCSV(School *schools)
 {
-    FILE *stream;
-    stream = fopen(CSV_PATH, "r+");
-    if (stream == NULL)
+    FILE *file;
+    file = fopen(SCHOOL_CSV_PATH, "rb");
+
+    if (file == NULL)
     {
-        return NULL;
-    }
-    return stream;
-}
-
-int file_size(FILE *stream)
-{
-
-    fseek(stream, 0, SEEK_END);
-    int size = ftell(stream);
-    fseek(stream, 0, SEEK_SET);
-
-    return size;
-}
-
-char **read_headers(char CSV_PATH[])
-{
-    FILE *stream = read_file(CSV_PATH);
-    int size = file_size(stream);
-
-    char buffer[size];
-    int count = fread(buffer, sizeof(char), size, stream);
-    fclose(stream);
-
-    int header_ammt = 0;
-
-    for (int i = 0; i < size; i++)
-    {
-        char ch = buffer[i];
-        if (ch == '\n' || ch == '\r')
-        {
-            break;
-        }
-        if (ch == ',')
-        {
-            header_ammt++;
-        }
+        perror("Error opening file");
+        return 1;
     }
 
-    int header_sizes[header_ammt + 1]; // Increased by 1 to account for the last header
-    int header_size = 0;
-    int header_sizes_index = 0;
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fseek(file, 0, SEEK_SET);
 
-    for (int i = 0; i < size; i++)
+    char *buffer = (char *)malloc(size + 1);
+
+    if (buffer == NULL)
     {
-        char ch = buffer[i];
-        if (ch == '\n' || ch == '\r')
+        perror("Memory allocation error");
+        fclose(file);
+        return 1;
+    }
+
+    fread(buffer, sizeof(char), size, file);
+    fclose(file);
+
+    int line_amount = 0;
+    for (int i = 0; i < size; ++i)
+    {
+        if (buffer[i] == '\n')
+            line_amount += 1;
+    }
+
+    int school_index = 0;
+
+    for (int i = 0; i < 7; ++i)
+    {
+        schools[i].students_amount = (char *)malloc(20 * sizeof(char));
+        if (schools[i].students_amount == NULL)
         {
-            header_sizes[header_sizes_index] = header_size;
-            break;
-        }
-        if (ch == ',')
-        {
-            header_sizes[header_sizes_index] = header_size;
-            header_size = 0;
-            header_sizes_index++;
-        }
-        else
-        {
-            header_size++;
+            perror("Memory allocation error");
+            exit(1);
         }
     }
 
-    header_sizes_num_elements = sizeof(header_sizes) / sizeof(header_sizes[0]);
-    int larger_header = 0;
-
-    for (int i = 0; i < header_sizes_num_elements; i++)
+    char *token = strtok(buffer, ",\n\r");
+    while (token != NULL && school_index <= line_amount)
     {
-        if (i == 0 || larger_header < header_sizes[i])
-        {
-            larger_header = header_sizes[i];
-        }
+        initSchool(&schools[school_index], token, strtok(NULL, ",\n\r"), strtok(NULL, ",\n\r"), strtok(NULL, ",\n\r"), strtok(NULL, ",\n\r"), strtok(NULL, ",\n\r"), strtok(NULL, ",\n\r"));
+        school_index++;
+        token = strtok(NULL, ",\n\r");
     }
 
-    char **headers = (char **)malloc(sizeof(char *) * header_sizes_num_elements);
-
-    if (!headers)
-        return NULL;
-    for (int i = 0; i < header_sizes_num_elements; i++)
+    for (int i = 0; i < school_index; i++)
     {
-        headers[i] = (char *)malloc(larger_header + 1);
-        if (!headers[i])
-        {
-            free(headers);
-            return NULL;
-        }
+        printf("School %d\n", i + 1);
+        printf("Students Amount: %s\n", schools[i].students_amount);
+        printf("Name: %s\n", schools[i].name);
+        printf("ID: %s\n", schools[i].id);
+        printf("Address: %s\n", schools[i].address);
+        printf("Jurisdiction: %s\n", schools[i].jurisdiction);
+        printf("City: %s\n", schools[i].city);
+        printf("Country Code: %s\n", schools[i].country_code);
+        printf("\n");
     }
 
-    int header_index = 0;
-    int cur_index = 0;
-    char *str = (char *)malloc(larger_header + sizeof(char));
-    for (int i = 0; i < size; i++)
-    {
-        char ch = buffer[i];
-        if (ch == '\n' || ch == '\r')
-        {
-            strncpy(headers[header_index], str, larger_header);
-            headers[header_index][cur_index] = '\0';
-            free(str);
-            break;
-        }
-        if (ch == ',')
-        {
-            strncpy(headers[header_index], str, larger_header);
-            headers[header_index][cur_index] = '\0';
-            strcpy(str, "");
+    free(buffer);
 
-            cur_index = 0;
-            header_index++;
-        }
-        else
-        {
-            str[cur_index] = ch;
-            cur_index++;
-        }
+    for (int i = 0; i < school_index; ++i)
+    {
+        free(schools[i].students_amount);
+        free(schools[i].address);
+        free(schools[i].id);
+        free(schools[i].name);
+        free(schools[i].city);
+        free(schools[i].country_code);
+        free(schools[i].jurisdiction);
     }
 
-    return headers;
+    return school_index;
 }
 
 int main()
 {
-
-    char **headers = read_headers(SCHOOL_CSV_PATH);
-    char **values = read_value(SCHOOL_CSV_PATH, 2);
-
-    if (values == NULL)
-    {
-        printf("ERROR: Unable to allocate array!\n");
-        return 1;
-    }
-    for (int i = 0; i < header_sizes_num_elements; i++)
-    {
-        printf("%d: %s\n", i, values[i]);
-    }
-    free(values);
-    free(headers);
-
+    School *schools = (School *)malloc(sizeof(School) * 1000);
+    int num_schools = readFromCSV(schools);
     return 0;
 }
